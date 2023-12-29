@@ -1,11 +1,11 @@
-# google-photos-exif
+# google-photos-migrator
 
-A tool to populate missing `DateTimeOriginal` EXIF metadata in Google Photos takeout, using Google's JSON metadata.
+This tool helps with the data downloaded from takeout.google.com and helps in fixing original date time of the media.
 
 ## Table of Contents
 
-* [Quick Start](#quick-start)
 * [Background](#background)
+* [Quick Start](#quick-start)
 * [Structure of Google Takeout Export](#structure-of-google-takeout-export)
 * [How to download Google Takeout content](#how-to-download-google-takeout-content)
 * [What inputs do I need to provide?](#what-inputs-do-i-need-to-provide)
@@ -15,50 +15,47 @@ A tool to populate missing `DateTimeOriginal` EXIF metadata in Google Photos tak
 * [Disclaimer?](#disclaimer)
 
 
-## Quick Start
-
-Example usage:
-
-```
-yarn
-yarn start --inputDir ~/takeout --outputDir ~/output --errorDir ~/error
-```
-
-
 ## Background
 
-I wrote this tool to help me overcome some issues that I had when trying to make use of photos exported from Google Photos using [Google Takeout](https://takeout.google.com/).
+Migration of Google Photos has been always an hassle especially with the original date time field embedded in the media. 
 
-My goal was to extract all photos from my Google Photos account and incorporate them into a master photo library on my Mac. This library would be organised into a date-based folder structure, with images being automatically moved into the correct structure using [Silent Sifter](https://www.vector15.com/silentsifter/).
+Google always does this where if you try to download all the data from [Google Takeout](https://takeout.google.com/), they will provide a zip dump of the whole dump.
 
-Silent Sifter provides a fast way to organise images into folders based on the timestamps embedded in the image metadata or failing that, the file modification timestamps.  
-
-Whilst it is great that I was able to use Google Takeout to extract all of my stored images from Google Photos at once, I found that some images were landing in the wrong place due to missing `DateTimeOriginal` EXIF timestamps. 
+I forked this tool to help me overcome some issues that I had when trying to make use of photos exported from Google Photos using [Google Takeout](https://takeout.google.com/).
+ 
+Whilst it is great that I was able to use Google Takeout to extract all of my stored images from Google Photos at once, I found that some images were landing in the wrong place due to missing `DateTimeOriginal` EXIF timestamps. This timestamp determines as to how a image or media should be placed in library and this is generally messed up. 
+In may case, I was planning my way out of Google Photos and moving my memories to One Drive simply because they are cheaper as of 2023.
 
 This tool aims to eliminate some of those issues by reading the `photoTakenTime` timestamp from the JSON metadata files that are included in Google Takeout export and using it to:
 - set a meaningful modification date on the file itself
 - populate the `DateTimeOriginal` field in the EXIF metadata if this field is not already set 
 
-## Structure of Google Takeout export
+## Quick Start
 
-At the time of writing (October 2020), Google Takeout provides you with one or more zip files, structured in a way that is fairly unintuitive and tricky to make use of directly.
+Example usage:
+
+```
+unzip -u -o <first.zip> -d ~/merged
+
+yarn
+yarn start --inputDir ~/merged --outputDir ~/output --errorDir ~/error
+```
+
+
+## Structure of Google Takeout export
+Google Takeout provides you with one or more zip files, structured in a way that is fairly unintuitive and tricky to make use of directly.
 
 Extracting the zip, you might find something similar to this: 
 
 ```
-Extracted Takeout Zip
+Extracted Takeout Zip:
+
   Google Photos
     2006-01-01
       IMG0305.jpg.json
     2020-09-01
       IMG1001.jpg
       IMG1001.jpg.json
-    2020-09-02
-      IMG1002.jpg.json
-      metadata.json
-    2020-09-04
-      IMG1003.jpg
-      IMG1003.json
     SomeAlbumName
       IMG1004.jpg
       IMG1004.jpg.json
@@ -69,8 +66,8 @@ Extracted Takeout Zip
 
 There are some interesting challenges to note here:
 
-1. Each zip contains folders for certain dates and/or album names. These folders contain a mixture of image files and JSON metadata files. The JSON sidecar files include, amongst other things, a useful `photoTakenTime` property.
-2. The date based folders don't always contain perfect pairs of images and JSON files, sometimes you get JSON files without a corresponding image. In the case that the export was split across multiple zips, I'm not sure whether there is any guarantee that the images & JSON files will always be co-located within the same export
+1. Each zip contains folders for certain dates and/or album names. These folders contain a mixture of image files and JSON metadata files. The JSON files include, amongst other things, a useful `photoTakenTime` property.
+2. The date based folders don't always contain perfect pairs of images and JSON files, sometimes you get JSON files without a corresponding image. In the case that the export was split across multiple zips, it cannot be guaranteed that the corresponding JSON file will be placed in the same zip along with the actual file. So it is recommended to extract all zips and place in same directory. [Extract the zip(s)](#)
 3. The naming convention for the JSON files seems inconsistent and has some interesting edge cases. For an image named `IMG123.jpg`, sometimes you get `IMG123.jpg.json` but sometimes it's just `IMG123.json` 
 4. From what I can tell, the embedded metadata (e.g. EXIF / IPTC) in the image files is _not_ updated if changes are made within Google Photos, for example if the dates are updated using the Google Photos UI. Instead, Google's metadata comes out in the accompanying JSON files.
 5. Whilst most of my images contained reasonable EXIF timestamps for the time they were taken (written by the phone's camera), a small number did not. My guess is that these images originated from other sources (e.g. they were shared with me or imported into the library by other means, and the source did not include a timestamp in the EXIF metadata)
@@ -80,7 +77,7 @@ There are some interesting challenges to note here:
 
 The first step to using this tool is to request & download a `Google Takeout`. At the time of writing the steps to do this are:
 
-1. Visit https://takeout.google.com/
+1. Visit https://takeout.google.com
 2. Deselect all products and then tick `Google Photos`
 3. Click `All photo albums included`.
 4. Keep all of the date-based albums selected. Deselect any "Hangout: *" albums unless you specifically want to include images from chats.
@@ -91,11 +88,18 @@ The first step to using this tool is to request & download a `Google Takeout`. A
 9. Click "Create Export", wait for a link to be sent by email and then download the zip file
 10. Extract the zip file into a directory. The path of this directory will be what we pass into the tool as the `inputDir`. 
 
+## To extract and merge the zip(s), follow the steps below:
+Run the following commands sequentially so that the multiple zips are stored in merged directory for further use by the tool:
+```
+unzip -u -o <first.zip> -d merged
+unzip -u -o <second.zip> -d merged
+```
+
 ## What inputs do I need to provide?
 
 The tool takes in three parameters:
 
-1. an `inputDir` directory path containing the extracted Google Takeout.
+1. an `inputDir` directory path containing the extracted Google Takeout. (This will be available from the )
 2. an `outputDir` directory path where processed files will be moved to. This needs to be an empty directory and can be anywhere on the disk. 
 3. an `errorDir` directory path where images with bad EXIF data that fail to process will be moved to. The folder can be empty.
 
@@ -151,7 +155,7 @@ The tool will do the following:
 
 3. Display a summary of work completed
 
-## How are media files matched to JSON sidecar files?
+## How are media files matched to JSON files?
 
 The Google Takeout file/folder structure has some interesting inconsistencies/quirks which make it tricky to work with.
 
@@ -181,10 +185,9 @@ To support that, this tool will also check for files that have a number suffix i
 
 ## Disclaimer
 
-This tool was only written for the purpose of solving my own personal requirements. 
+This tool was forked from another Github repository. Even though the codebase if old, this still serves the purpose. All thanks to [Matt Wilson](https://github.com/mattwilson1024/google-photos-exif) for this amazing codebase and the detailed README. Most of the README is still same and the codebase needs some minor improvements due to deprecation of certain libraries which can be targetted later on.
+
 
 I decided to make this public on GitHub because:
  - it was useful for me, so maybe it'll be useful for others in the future
  - future me might be thankful if I ever need to do this again
-
-With that said, please bear in mind that this tool won't be actively maintained and your mileage may vary. I'm sure it's far from perfect so if you choose to use it please proceed with caution and be careful to verify the results! I hope it's helpful.
