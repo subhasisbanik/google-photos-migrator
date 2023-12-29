@@ -30,6 +30,11 @@ This tool aims to eliminate some of those issues by reading the `photoTakenTime`
 - set a meaningful modification date on the file itself
 - populate the `DateTimeOriginal` field in the EXIF metadata if this field is not already set 
 
+### What is EXIF ?
+EXIF (Exchangeable Image File Format) files store important data about photographs. Almost all digital cameras create these data files each time you snap a new picture. An EXIF file holds all the information about the image itself — such as the exposure level, where you took the photo, and any settings you used.
+
+In this case, the EXIF data contains the original date and time of the image or media which gets modified when the data dump from Google Takeout is extracted.
+
 ## Quick Start
 
 Example usage:
@@ -80,13 +85,13 @@ The first step to using this tool is to request & download a `Google Takeout`. A
 1. Visit https://takeout.google.com
 2. Deselect all products and then tick `Google Photos`
 3. Click `All photo albums included`.
-4. Keep all of the date-based albums selected. Deselect any "Hangout: *" albums unless you specifically want to include images from chats.
-5. **Important**: If you have custom albums (ones with non-date names), deselect these because the images will already be referenced by the date-based albums. If you don't do this you will end up with duplicates.
+4. Keep all of the albums with year mentioned on it. **Do not select any other albums which Google creates because these are already present in the year based albums.**
+5. **Important**: If you have custom albums (ones with non-date names), deselect these because the images will already be referenced by the date-based albums.
 6. Click OK and move to the next step
 7. Select "Export once"
-8. Under "File type & size" I recommend increasing the file size to 50GB. **Important**: If your collection is larger than this (or you need to export it as multiple smaller archives) then you will need to **merge** the resultant folders together manually before using this tool. If you do this, be sure to merge the contents of any directories with the same name, rather than overwriting them.  
-9. Click "Create Export", wait for a link to be sent by email and then download the zip file
-10. Extract the zip file into a directory. The path of this directory will be what we pass into the tool as the `inputDir`. 
+8. Under "File type & size" it is recommended to increase the file size to 50GB. **Important**: If your collection is larger than this, Google will automatically created multiple zip with names ending with 001, 002 and onwards. 
+9. Click "Create Export", wait for a link to be sent by email and then download the zip file. **This process takes substantial amount of time if you have some good amount of data, like I did**
+10. Extract the zip file into a directory. The path of this directory will be what we pass into the tool as the `inputDir`.
 
 ## To extract and merge the zip(s), follow the steps below:
 Run the following commands sequentially so that the multiple zips are stored in merged directory for further use by the tool:
@@ -95,13 +100,17 @@ unzip -u -o <first.zip> -d merged
 unzip -u -o <second.zip> -d merged
 ```
 
-## What inputs do I need to provide?
+**Important**: This step is very crucial as this will create the inputDir for the tool to consume.
+
+
+## What inputs do I need to provide to the tool?
 
 The tool takes in three parameters:
 
-1. an `inputDir` directory path containing the extracted Google Takeout. (This will be available from the )
+1. an `inputDir` directory path containing the extracted Google Takeout. (This will be available from the [Extracted folder](https://github.com/subhasisbanik/google-photos-migrator#to-extract-and-merge-the-zips-follow-the-steps-below))
 2. an `outputDir` directory path where processed files will be moved to. This needs to be an empty directory and can be anywhere on the disk. 
-3. an `errorDir` directory path where images with bad EXIF data that fail to process will be moved to. The folder can be empty.
+3. an `errorDir` directory path where media with bad EXIF data that fail to process will be moved to. The folder can be empty. 
+>Note: Though this folder contains media with bad EXIF data, still this is worked on by the tool and the output is churned to the Output folder.
 
 The `inputDir` needs to be a single directory containing an _extracted_ zip from Google takeout. As described in the section above, it is important that the zip has been extracted into a directory (this tool doesn't extract zips for you) and that it is a single folder containing the whole Takeout (or if coming from multiple archives, that they have been properly merged together). 
 
@@ -129,12 +138,14 @@ The default configuration is as follows:
 │.jpg      │true     │
 │.heic     │true     │
 │.gif      │false    │
-│.mp4      │false    │
+│.mp4      │true     │
 │.png      │false    │
 │.avi      │false    │
 │.mov      │false    │
 └──────────┴─────────┘
 ```
+
+>Note: To be able to fix the date time issues of all the media, set true to all the above especially to jpeg, jpg, mp4 type data.
 
 ## What does the tool do?
 
@@ -143,7 +154,7 @@ The tool will do the following:
   
 2. For each "media file":
    
-   a. Look for a corresponding sidecar JSON metadata file (see the section below for more on this) and if found, read the `photoTakenTime` field
+   a. Look for a corresponding JSON metadata file and if found, read the `photoTakenTime` field
    
    b. Copy the media file to the output directory
 
@@ -169,7 +180,7 @@ In the same directory, we also expect to find a JSON file containing metadata ab
 
 ### Edited images (e.g. "foo-edited.jpg") don't have their own JSON files
 
-It appears that images that were edited using Google Photos (e.g. rotated or edited on a mobile device) **don't** get their own JSON sidecar files.
+It appears that images that were edited using Google Photos (e.g. rotated or edited on a mobile device) **don't** get their own JSON files.
 
 For example, for image file `foo-edited.jpg` we _don't_ get `foo-edited.json` nor `foo-edited.jpg.json`. Instead we must rely on the JSON file from the original image.
 
@@ -191,3 +202,10 @@ This tool was forked from another Github repository. Even though the codebase if
 I decided to make this public on GitHub because:
  - it was useful for me, so maybe it'll be useful for others in the future
  - future me might be thankful if I ever need to do this again
+
+
+## Future Improvements
+1. This tool has the possibility of working as a binary and run with the required configuration in Cloud
+2. Fix the usage of deprecated libabries like @oclif/command
+3. Change logging from verbose to info and debug
+4. Some files like, for example Screenshot files do not have associated JSON files with them. This tool should be able to identify these files which are missing a JSON file, and update the date time with the name on the file since it appears the name also sometimes contain the correct date time on it.
